@@ -40,6 +40,9 @@ Interactive API docs: <http://localhost:8000/docs>. Frontend integration details
 | `FRONTEND_URL` | `http://localhost:5173` | Payment-link destination |
 | `ALLOWED_ORIGINS` | `http://localhost:5173` | Comma-separated CORS origins; set the deployed frontend origin |
 | `PORT` | `8000` | Port used by `python -m backend` and the Docker health check |
+| `VOICE_SESSIONS_PER_IP_HOUR` | `0` | Public-demo cap on browser voice sessions per visitor IP per hour; `0` = off |
+| `CHAT_MESSAGES_PER_IP_HOUR` | `0` | Public-demo cap on chat turns per visitor IP per hour; `0` = off |
+| `DAILY_AI_BUDGET_USD` | `0` | Estimated daily spend ceiling for all visitors ($0.02 per chat turn, $0.25 per voice session); `0` = off |
 | `TWILIO_ACCOUNT_SID` | empty | Account owning the voice number; optional telephone integration |
 | `TWILIO_AUTH_TOKEN` | empty | Server-side webhook/WebSocket signature validation and outbound calls |
 | `TWILIO_PHONE_NUMBER` | empty | Voice-capable Twilio number, in E.164 format, e.g. `+12025550123` |

@@ -1,0 +1,46 @@
+# Render blueprint for the FlowQ backend (free Docker web service).
+# Secrets and deployment URLs are set in the Render dashboard / API, never in this file.
+services:
+  - type: web
+    name: flowq-ai-backend
+    runtime: docker
+    plan: free
+    region: frankfurt
+    branch: master
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: CHAT_MODEL
+        value: gpt-6.1-sol
+      - key: VISION_MODEL
+        value: gpt-6.1-sol
+      - key: REALTIME_MODEL
+        value: gpt-realtime-2.1
+      - key: REALTIME_VOICE
+        value: marin
+      - key: TRANSCRIPTION_MODEL
+        value: gpt-live-transcribe
+      - key: INDUSTRY_PACK
+        value: gadgets
+      # The free plan has no persistent disk: demo data is re-seeded on every start.
+      - key: DATABASE_PATH
+        value: /data/flowq.sqlite3
+      - key: UPLOAD_DIR
+        value: /data/media
+      - key: BACKEND_PUBLIC_URL
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false
+      # Spend protection for a public demo.
+      - key: VOICE_SESSIONS_PER_IP_HOUR
+        value: "3"
+      - key: CHAT_MESSAGES_PER_IP_HOUR
+        value: "40"
+      - key: DAILY_AI_BUDGET_USD
+        value: "3"

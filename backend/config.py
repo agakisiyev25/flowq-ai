@@ -35,6 +35,8 @@ class Settings:
     twilio_whatsapp_from: str = ""
     frontend_dist: Path | None = None
     voice_sessions_per_ip_hour: int = 0
+    chat_messages_per_ip_hour: int = 0
+    daily_ai_budget_usd: float = 0
     public_base_url: str = ""
     demo_caller_phone: str = ""
 
@@ -54,6 +56,8 @@ class Settings:
             twilio_whatsapp_from=os.getenv("TWILIO_WHATSAPP_FROM", "").strip(),
             frontend_dist=rooted_path(os.environ["FRONTEND_DIST"]) if os.getenv("FRONTEND_DIST") else None,
             voice_sessions_per_ip_hour=int(os.getenv("VOICE_SESSIONS_PER_IP_HOUR") or 0),
+            chat_messages_per_ip_hour=int(os.getenv("CHAT_MESSAGES_PER_IP_HOUR") or 0),
+            daily_ai_budget_usd=float(os.getenv("DAILY_AI_BUDGET_USD") or 0),
             public_base_url=os.getenv("PUBLIC_BASE_URL", "").rstrip("/"),
             demo_caller_phone=os.getenv("DEMO_CALLER_PHONE", ""),
             database_path=rooted_path(os.getenv("DATABASE_PATH", "backend/data/flowq.sqlite3")),

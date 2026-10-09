@@ -102,8 +102,39 @@ def create_app(settings: Settings | None = None, ai=None, *, twilio_gateway=None
     async def execute_tool(tool_name: str, body: ToolBody):
         return {"result": await tools.execute(tool_name, body.phone, body.channel, body.args)}
 
+    starts: dict[str, dict[str, list[float]]] = {"voice": {}, "chat": {}}
+    spent = {"day": "", "usd": 0.0}
+    # Rough per-request estimates; the hard limit belongs in the OpenAI project's own budget.
+    estimated_usd = {"voice": 0.25, "chat": 0.02}
+
+    def limit_spend(request: Request, kind: str, limit: int):
+        """Each chat turn and voice session spends real model budget; cap them on a public demo."""
+        # Behind Cloudflare (Tunnel, Render) the visitor's address arrives in CF-Connecting-IP.
+        visitor = request.headers.get("cf-connecting-ip") or (request.client.host if request.client else "unknown")
+        if visitor in ("127.0.0.1", "::1", "localhost"):
+            return  # the operator's own machine (local recording) is never capped
+        label = "Voice call" if kind == "voice" else "Chat message"
+        if limit > 0:
+            now = time.monotonic()
+            recent = [started for started in starts[kind].get(visitor, []) if now - started < 3600]
+            starts[kind][visitor] = recent
+            if len(recent) >= limit:
+                hint = "Please use the chat, or try again later." if kind == "voice" else "Please try again later."
+                raise HTTPException(429, f"{label} limit reached ({limit} per hour). {hint}")
+        budget = settings.daily_ai_budget_usd
+        if budget > 0:
+            today = time.strftime("%Y-%m-%d", time.gmtime())
+            if spent["day"] != today:
+                spent["day"], spent["usd"] = today, 0.0
+            if spent["usd"] + estimated_usd[kind] > budget:
+                raise HTTPException(429, "Today's demo AI budget is used up. Please try again tomorrow.")
+            spent["usd"] += estimated_usd[kind]
+        if limit > 0:
+            recent.append(now)
+
     @app.post("/api/chat")
-    async def chat(body: ChatBody):
+    async def chat(body: ChatBody, request: Request):
+        limit_spend(request, "chat", settings.chat_messages_per_ip_hour)
         try:
             return await agent.turn(body.phone, body.text, body.media_ids)
         except ValueError as error:
@@ -113,27 +144,9 @@ def create_app(settings: Settings | None = None, ai=None, *, twilio_gateway=None
         except AIProviderError as error:
             raise HTTPException(502, str(error)) from error
 
-    voice_starts: dict[str, list[float]] = {}
-
-    def limit_voice_sessions(request: Request):
-        """Each browser voice session spends real model budget; cap them per visitor on a public demo."""
-        limit = settings.voice_sessions_per_ip_hour
-        if limit <= 0:
-            return
-        # Behind Cloudflare Tunnel the visitor's address arrives in CF-Connecting-IP.
-        visitor = request.headers.get("cf-connecting-ip") or (request.client.host if request.client else "unknown")
-        if visitor in ("127.0.0.1", "::1", "localhost"):
-            return  # the operator's own machine (local recording) is never capped
-        now = time.monotonic()
-        recent = [started for started in voice_starts.get(visitor, []) if now - started < 3600]
-        voice_starts[visitor] = recent
-        if len(recent) >= limit:
-            raise HTTPException(429, f"Voice call limit reached ({limit} per hour). Please use the chat, or try again later.")
-        recent.append(now)
-
     @app.post("/api/realtime/session")
     async def realtime_session(body: PhoneBody, request: Request):
-        limit_voice_sessions(request)
+        limit_spend(request, "voice", settings.voice_sessions_per_ip_hour)
         instructions = memory_instructions(pack.voice_prompt, db.history(body.phone))
         try:
             return await ai.realtime_session(instructions, realtime_tools())

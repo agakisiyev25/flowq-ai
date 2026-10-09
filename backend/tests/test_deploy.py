@@ -65,3 +65,34 @@ def test_voice_sessions_are_capped_per_visitor(tmp_path):
         assert start("203.0.113.6") == 200  # another visitor is unaffected
         assert [start("127.0.0.1") for _ in range(5)] == [200] * 5  # local operator is not capped
     assert ai.realtime_session.await_count == 9
+
+
+def test_chat_messages_and_daily_budget_are_capped(tmp_path):
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+    ai = SimpleNamespace(realtime_session=AsyncMock(return_value={"client_secret": "ek_x"}), close=AsyncMock())
+    base = replace(Settings(), database_path=tmp_path / "s.sqlite3", upload_dir=tmp_path / "media")
+
+    def run(settings):
+        app = create_app(settings, ai)
+        app.state.agent.turn = AsyncMock(return_value={"reply": "ok"})
+        client = TestClient(app)
+        client.__enter__()  # run startup so the database is seeded
+        chat = lambda ip: client.post("/api/chat", json={"phone": "+994501234567", "text": "hi"},
+                                      headers={"CF-Connecting-IP": ip}).status_code
+        voice = lambda ip: client.post("/api/realtime/session", json={"phone": "+994501234567"},
+                                       headers={"CF-Connecting-IP": ip}).status_code
+        return chat, voice
+
+    chat, _ = run(replace(base, chat_messages_per_ip_hour=2))
+    assert [chat("203.0.113.5") for _ in range(3)] == [200, 200, 429]
+    assert chat("203.0.113.6") == 200  # another visitor is unaffected
+
+    # $0.30 a day covers one voice session ($0.25) and two chat turns ($0.02 each), for all visitors together.
+    chat, voice = run(replace(base, daily_ai_budget_usd=0.30))
+    assert [voice("203.0.113.5"), voice("203.0.113.6")] == [200, 429]
+    assert [chat("203.0.113.7") for _ in range(3)] == [200, 200, 429]
+    assert chat("127.0.0.1") == 200  # local operator is not capped
+
+    chat, voice = run(base)  # defaults: no caps at all
+    assert [chat("203.0.113.5") for _ in range(5)] == [200] * 5
