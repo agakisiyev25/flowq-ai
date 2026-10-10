@@ -6,6 +6,11 @@
 !backend/tools/*.py
 !industry_packs/
 !industry_packs/**
+!frontend/
+!frontend/**
+frontend/node_modules/
+frontend/dist/
+frontend/.vercel/
 **/.env
 **/*.env
 **/.env.*

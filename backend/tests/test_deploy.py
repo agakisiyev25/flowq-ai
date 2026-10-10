@@ -12,6 +12,22 @@ def test_cors_origins_from_environment(monkeypatch):
     assert settings.allowed_origins == ("https://shop.example", "http://localhost:5173")
 
 
+def test_public_urls_default_to_the_host_service_url(monkeypatch):
+    for name in ("BACKEND_PUBLIC_URL", "FRONTEND_URL", "RENDER_EXTERNAL_URL", "RAILWAY_PUBLIC_DOMAIN"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("RAILWAY_PUBLIC_DOMAIN", "flowq.up.railway.app")  # Railway gives the host without a scheme
+    assert Settings.from_env().backend_url == "https://flowq.up.railway.app"
+    monkeypatch.delenv("RAILWAY_PUBLIC_DOMAIN")
+    monkeypatch.setenv("RENDER_EXTERNAL_URL", "https://flowq.onrender.com")
+    settings = Settings.from_env()
+    assert (settings.backend_url, settings.frontend_url) == ("https://flowq.onrender.com",) * 2
+    monkeypatch.setenv("FRONTEND_URL", "https://shop.example/")  # an explicit setting still wins
+    assert Settings.from_env().frontend_url == "https://shop.example"
+    monkeypatch.delenv("RENDER_EXTERNAL_URL")
+    monkeypatch.delenv("FRONTEND_URL")
+    assert Settings.from_env().backend_url == "http://localhost:8000"
+
+
 def test_configured_origin_is_allowed(tmp_path):
     settings = replace(Settings(), database_path=tmp_path / "cors.sqlite3", upload_dir=tmp_path / "media",
                        allowed_origins=("https://shop.example",))

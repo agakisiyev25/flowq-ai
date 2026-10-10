@@ -1,4 +1,4 @@
-# Render blueprint for the FlowQ backend (free Docker web service).
+# Render blueprint for FlowQ: one free Docker web service running the backend and the built frontend.
 # Secrets and deployment URLs are set in the Render dashboard / API, never in this file.
 services:
   - type: web
@@ -31,12 +31,9 @@ services:
         value: /data/flowq.sqlite3
       - key: UPLOAD_DIR
         value: /data/media
-      - key: BACKEND_PUBLIC_URL
-        sync: false
-      - key: FRONTEND_URL
-        sync: false
-      - key: ALLOWED_ORIGINS
-        sync: false
+      # The image serves the built frontend from this same service, so links default to
+      # Render's own RENDER_EXTERNAL_URL. Set BACKEND_PUBLIC_URL, FRONTEND_URL and ALLOWED_ORIGINS
+      # in the dashboard only if the frontend is hosted somewhere else.
       # Spend protection for a public demo.
       - key: VOICE_SESSIONS_PER_IP_HOUR
         value: "3"

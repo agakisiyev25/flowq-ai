@@ -42,6 +42,9 @@ class Settings:
 
     @classmethod
     def from_env(cls) -> "Settings":
+        # Render and Railway tell a service its own public address; one service serves the API and the frontend.
+        railway_domain = os.getenv("RAILWAY_PUBLIC_DOMAIN", "")
+        host_url = os.getenv("RENDER_EXTERNAL_URL") or (f"https://{railway_domain}" if railway_domain else "")
         return cls(
             api_key=os.getenv("OPENAI_API_KEY", ""),
             chat_model=os.getenv("CHAT_MODEL", cls.chat_model),
@@ -62,8 +65,8 @@ class Settings:
             demo_caller_phone=os.getenv("DEMO_CALLER_PHONE", ""),
             database_path=rooted_path(os.getenv("DATABASE_PATH", "backend/data/flowq.sqlite3")),
             upload_dir=rooted_path(os.getenv("UPLOAD_DIR", "backend/data/media")),
-            backend_url=os.getenv("BACKEND_PUBLIC_URL", cls.backend_url).rstrip("/"),
-            frontend_url=os.getenv("FRONTEND_URL", cls.frontend_url).rstrip("/"),
+            backend_url=(os.getenv("BACKEND_PUBLIC_URL") or host_url or cls.backend_url).rstrip("/"),
+            frontend_url=(os.getenv("FRONTEND_URL") or host_url or cls.frontend_url).rstrip("/"),
             allowed_origins=tuple(origin.strip().rstrip("/") for origin in
                                   os.getenv("ALLOWED_ORIGINS", "http://localhost:5173").split(",") if origin.strip()),
         )
